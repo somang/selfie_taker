@@ -1,102 +1,102 @@
 import cv2
-import numpy as np
+import datetime
+import os
 
-# program to capture single image from webcam in python
-  
-# importing OpenCV library
-from cv2 import *
-  
-# initialize the camera
-# If you have multiple camera connected with 
-# current device, assign a value in cam_port 
-# variable according to that
-cam_port = 0
-cam = VideoCapture(cam_port)
-  
-# reading the input using the camera
-result, image = cam.read()
-  
-# If image will detected without any error, 
-# show result
-if result:
-  
-    # showing result, it take frame name and image 
-    # output
-    imshow("GeeksForGeeks", image)
-  
-    # saving image in local storage
-    imwrite("GeeksForGeeks.png", image)
-  
-    # If keyboard interrupt occurs, destroy image 
-    # window
-    waitKey(0)
-    destroyWindow("GeeksForGeeks")
-  
-# If captured image is corrupted, moving to else part
-else:
-    print("No image detected. Please! try again")
+class WebcamSelfie:
+    def __init__(self):
+        self.camera = None
+        self.output_dir = "selfies"
+        
+        # Create output directory if it doesn't exist
+        if not os.path.exists(self.output_dir):
+            os.makedirs(self.output_dir)
+    
+    def initialize_camera(self, camera_index=0):
+        """Initialize the webcam"""
+        self.camera = cv2.VideoCapture(camera_index)
+        
+        if not self.camera.isOpened():
+            raise ValueError("Could not open camera")
+            
+        # Set resolution to 1280x720
+        self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+        self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+    
+    def add_overlay_text(self, frame, text, position, font_scale=1, color=(255, 255, 255)):
+        """Add text overlay to the frame"""
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        # Add black background to text for better visibility
+        (text_width, text_height), _ = cv2.getTextSize(text, font, font_scale, 2)
+        cv2.rectangle(frame, position, 
+                     (position[0] + text_width, position[1] + text_height + 5), 
+                     (0, 0, 0), -1)
+        # Add text
+        cv2.putText(frame, text, position, font, font_scale, color, 2)
+    
+    def capture_selfie(self):
+        """Main function to capture selfie"""
+        if self.camera is None:
+            self.initialize_camera()
+        
+        countdown_active = False
+        countdown_start = 0
+        countdown_duration = 3  # seconds
+        
+        print("Press SPACE to start countdown and take a selfie")
+        print("Press ESC to exit")
+        
+        while True:
+            ret, frame = self.camera.read()
+            if not ret:
+                print("Failed to grab frame")
+                break
+                
+            # Flip frame horizontally for natural selfie view
+            frame = cv2.flip(frame, 1)
+            
+            if not countdown_active:
+                # Show instructions
+                self.add_overlay_text(frame, "Press SPACE to take selfie", (10, 30))
+                self.add_overlay_text(frame, "Press ESC to exit", (10, 70))
+            else:
+                # Show countdown
+                elapsed_time = datetime.datetime.now() - countdown_start
+                remaining = countdown_duration - int(elapsed_time.total_seconds())
+                
+                if remaining > 0:
+                    self.add_overlay_text(frame, f"Taking photo in {remaining}...", 
+                                       (10, 70), 2, (0, 255, 255))
+                else:
+                    # Take the selfie
+                    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                    filename = os.path.join(self.output_dir, f"selfie_{timestamp}.jpg")
+                    cv2.imwrite(filename, frame)
+                    print(f"Selfie saved as {filename}")
+                    countdown_active = False
+            
+            # Show the frame
+            cv2.imshow('Selfie Camera', frame)
+            
+            # Handle key presses
+            key = cv2.waitKey(1) & 0xFF
+            if key == 27:  # ESC key
+                break
+            elif key == 32 and not countdown_active:  # SPACE key
+                countdown_active = True
+                countdown_start = datetime.datetime.now()
+    
+    def release(self):
+        """Release the camera and close windows"""
+        if self.camera is not None:
+            self.camera.release()
+        cv2.destroyAllWindows()
 
-# # load image
-# img = cv2.imread("foreground.jpg");
+def main():
+    selfie_cam = WebcamSelfie()
+    try:
+        selfie_cam.capture_selfie()
+    finally:
+        selfie_cam.release()
 
-# # grayscale
-# gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY);
-
-# # canny
-# canned = cv2.Canny(gray, 100, 200);
-
-# # dilate to close holes in lines
-# kernel = np.ones((5,5),np.uint8)
-# mask = cv2.dilate(canned, kernel, iterations = 1);
-
-# # find contours
-# # Opencv 3.4, if using a different major version (4.0 or 2.0), remove the first underscore
-# _, contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE);
-
-# # find big contours
-# biggest_cntr = None;
-# biggest_area = 0;
-# for contour in contours:
-#     area = cv2.contourArea(contour);
-#     if area > biggest_area:
-#         biggest_area = area;
-#         biggest_cntr = contour;
-
-# # draw contours
-# crop_mask = np.zeros_like(mask);
-# cv2.drawContours(crop_mask, [biggest_cntr], -1, (255), -1);
-
-# # fill in holes
-# # inverted
-# inverted = cv2.bitwise_not(crop_mask);
-
-# # contours again
-# _, contours, _ = cv2.findContours(inverted, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE);
-
-# # find small contours
-# small_cntrs = [];
-# for contour in contours:
-#     area = cv2.contourArea(contour);
-#     if area < 20000:
-#         print(area);
-#         small_cntrs.append(contour);
-
-# # draw on mask
-# cv2.drawContours(crop_mask, small_cntrs, -1, (255), -1);
-
-# # opening + median blur to smooth jaggies
-# crop_mask = cv2.erode(crop_mask, kernel, iterations = 1);
-# crop_mask = cv2.dilate(crop_mask, kernel, iterations = 1);
-# crop_mask = cv2.medianBlur(crop_mask, 5);
-
-# # crop image
-# crop = np.zeros_like(img);
-# crop[crop_mask == 255] = img[crop_mask == 255];
-
-# # show
-# cv2.imshow("original", img);
-# cv2.imshow("gray", gray);
-# cv2.imshow("canny", canned);
-# cv2.imshow("mask", crop_mask);
-# cv2.imshow("cropped", crop);
-# cv2.waitKey(0);
+if __name__ == "__main__":
+    main()
